@@ -155,7 +155,11 @@ export default function App() {
         return;
       }
       console.error("Sign in error:", error);
-      setAuthError(error.message);
+      if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed') {
+        setAuthError('Google Auth is not enabled in your Firebase console. Please go to Authentication > Sign-in method and enable Google.');
+      } else {
+        setAuthError(error.message);
+      }
     }
   };
 
