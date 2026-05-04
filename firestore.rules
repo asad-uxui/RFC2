@@ -48,35 +48,25 @@ service cloud.firestore {
     match /issues/{issueId} {
       allow read: if true; // Public read access
       
-      allow create: if isSignedIn() 
-                  && isValidId(issueId)
+      allow create: if isValidId(issueId)
                   && isValidIssueShape(incoming())
-                  && incoming().reporterId == request.auth.uid
                   && incoming().createdAt == request.time
                   && incoming().updatedAt == request.time;
                   
-      allow update: if isSignedIn()
-                  && isValidIssueShape(incoming())
-                  && incoming().reporterId == existing().reporterId
+      allow update: if isValidIssueShape(incoming())
                   && incoming().createdAt == existing().createdAt
-                  && incoming().updatedAt == request.time
-                  && (
-                    (existing().reporterId == request.auth.uid) ||
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
-                  );
+                  && incoming().updatedAt == request.time;
                   
-      allow delete: if isSignedIn() && existing().reporterId == request.auth.uid;
+      allow delete: if true;
     }
 
     match /projects/{projectId} {
        allow read: if true;
-       allow create: if isSignedIn() 
-                     && isValidId(projectId)
+       allow create: if isValidId(projectId)
                      && isValidProjectShape(incoming())
-                     && incoming().createdBy == request.auth.uid
                      && incoming().createdAt == request.time;
-       allow update: if isSignedIn() && existing().createdBy == request.auth.uid;
-       allow delete: if isSignedIn() && existing().createdBy == request.auth.uid;
+       allow update: if true;
+       allow delete: if true;
     }
   }
 }

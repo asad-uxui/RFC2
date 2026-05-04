@@ -13,7 +13,6 @@ import {
   serverTimestamp,
   getDocFromServer
 } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   Plus, 
   Search, 
@@ -24,8 +23,6 @@ import {
   AlertCircle, 
   Camera, 
   X, 
-  LogOut, 
-  LogIn,
   MoreHorizontal,
   Trash2,
   Edit2,
@@ -43,7 +40,7 @@ import {
   FileCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { db, auth, signInWithGoogle, signInAsGuest, signInWithEmail, signOut } from './lib/firebase';
+import { db, auth } from './lib/firebase';
 import { Issue, IssueStatus, OperationType, FirestoreErrorInfo, Project } from './types';
 
 // Error Handler
@@ -118,8 +115,6 @@ const Logo = ({ size = "md", isDarkMode = false }: { size?: "sm" | "md" | "lg", 
 };
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -140,44 +135,6 @@ export default function App() {
     }
     return false;
   });
-
-  const [isLocalGuest, setIsLocalGuest] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  const handleSignInGoogle = async () => {
-    setAuthError(null);
-    try {
-      await signInWithGoogle();
-      setIsLocalGuest(false);
-    } catch (error: any) {
-      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
-        // Ignore these errors as they are user-initiated cancellations
-        return;
-      }
-      console.error("Sign in error:", error);
-      if (error.code === 'auth/configuration-not-found' || error.code === 'auth/operation-not-allowed') {
-        setAuthError('Google Auth is not enabled in your Firebase console. Please go to Authentication > Sign-in method and enable Google.');
-      } else {
-        setAuthError(error.message);
-      }
-    }
-  };
-
-  const handleSignInGuest = async () => {
-    setAuthError(null);
-    try {
-      await signInAsGuest();
-      setIsLocalGuest(false);
-    } catch (error: any) {
-      if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
-        setIsLocalGuest(true);
-        setAuthError('Anonymous Authentication is disabled. You can browse issues in read-only mode, but signing in with Google is required to report or edit issues.');
-      } else {
-        console.error("Guest sign in error:", error);
-        setAuthError(error.message);
-      }
-    }
-  };
 
   useEffect(() => {
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
@@ -200,14 +157,6 @@ export default function App() {
       }
     }
     testConnection();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -250,22 +199,6 @@ export default function App() {
     }
   };
 
-  if (loading) {
-    const isDarkMode = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
-    return (
-      <div className={`flex flex-col items-center justify-center min-h-screen transition-colors ${isDarkMode ? 'bg-black-950' : 'bg-slate-50'}`}>
-        <div className="mb-8 scale-150">
-          <Logo size="lg" isDarkMode={isDarkMode} />
-        </div>
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-          className={`w-8 h-8 border-2 border-t-transparent rounded-full ${isDarkMode ? 'border-white' : 'border-slate-900'}`}
-        />
-      </div>
-    );
-  }
-
   const filteredIssues = issues.filter(issue => {
     const matchesSearch = issue.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = filterStatus === 'all' || issue.status === filterStatus;
@@ -290,53 +223,6 @@ export default function App() {
             >
               {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-
-            {user || isLocalGuest ? (
-              <div className={`flex items-center gap-3 px-3 py-1.5 rounded-full border transition-colors ${isDarkMode ? 'bg-black-800 border-black-700' : 'bg-slate-50 border-slate-100'}`}>
-                {user?.photoURL ? (
-                   <img src={user.photoURL} alt={user.displayName || ''} className="w-7 h-7 rounded-full" />
-                ) : (
-                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold shadow-sm ${isDarkMode ? 'bg-black-700 text-black-400' : 'bg-white text-slate-400'}`}>
-                      {user?.isAnonymous ? 'G' : (isLocalGuest ? 'G' : (user?.displayName?.charAt(0) || 'U'))}
-                   </div>
-                )}
-                <span className={`text-sm font-medium hidden md:block ${isDarkMode ? 'text-black-300' : 'text-slate-700'}`}>
-                  {user?.isAnonymous ? 'Guest' : (isLocalGuest ? 'Guest (Read-Only)' : (user?.displayName || 'User'))}
-                </span>
-                <button 
-                  onClick={() => {
-                    signOut();
-                    setIsLocalGuest(false);
-                  }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-black-200 transition-colors"
-                  title="Sign out"
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {authError && (
-                  <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-rose-500/10 text-rose-500 text-[10px] font-semibold rounded-lg border border-rose-500/20">
-                    <AlertCircle size={12} />
-                    {authError.length > 30 ? 'Auth Config Error' : authError}
-                  </div>
-                )}
-                <button 
-                  onClick={handleSignInGuest}
-                  className={`text-sm font-semibold px-3 py-1.5 transition-all ${isDarkMode ? 'text-black-400 hover:text-black-200' : 'text-slate-900 hover:text-slate-800'}`}
-                >
-                  Continue as Guest
-                </button>
-                <button 
-                  onClick={handleSignInGoogle}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-semibold transition-all shadow-sm active:scale-95 ${isDarkMode ? 'bg-white hover:bg-black-100 text-black-950' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
-                >
-                  <LogIn size={16} />
-                  Sign In
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </header>
@@ -551,23 +437,13 @@ export default function App() {
               setIsAdding(false);
               setIssueToEdit(null);
             }} 
-            user={user} 
             projects={projects}
-            authError={authError}
-            handleSignInGoogle={handleSignInGoogle}
-            handleSignInGuest={handleSignInGuest}
-            isLocalGuest={isLocalGuest}
             issueToEdit={issueToEdit || undefined}
           />
         )}
         {isAddingProject && (
           <ProjectModal 
             onClose={() => setIsAddingProject(false)} 
-            user={user} 
-            authError={authError}
-            handleSignInGoogle={handleSignInGoogle}
-            handleSignInGuest={handleSignInGuest}
-            isLocalGuest={isLocalGuest}
           />
         )}
         {isExporting && (
@@ -582,7 +458,6 @@ export default function App() {
           <ViewIssueModal 
             issue={selectedIssue} 
             projects={projects}
-            user={user}
             onClose={() => setSelectedIssue(null)} 
             onEdit={(issue) => {
               setSelectedIssue(null);
@@ -756,7 +631,7 @@ function IssueCard({ issue, onView, isDarkMode, projects }: { issue: Issue, onVi
   );
 }
 
-function ViewIssueModal({ issue, onClose, projects, user, onEdit }: { issue: Issue, onClose: () => void, projects: Project[], user: User | null, onEdit: (issue: Issue) => void }) {
+function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, onClose: () => void, projects: Project[], onEdit: (issue: Issue) => void }) {
   const isDarkMode = document.documentElement.classList.contains('dark');
   const [isZoomed, setIsZoomed] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -795,7 +670,7 @@ function ViewIssueModal({ issue, onClose, projects, user, onEdit }: { issue: Iss
     }
   };
 
-  const canEdit = user?.uid === issue.reporterId;
+  const canEdit = true; // Everyone can edit since auth is removed
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -903,38 +778,34 @@ function ViewIssueModal({ issue, onClose, projects, user, onEdit }: { issue: Iss
 
         <div className={`px-6 py-4 border-t flex items-center justify-between shrink-0 transition-colors ${isDarkMode ? 'bg-black-900/50 border-black-800' : 'bg-slate-50 border-slate-100'}`}>
           <div className="relative">
-            {auth.currentUser ? (
-              <>
-                <button 
-                  onClick={() => setShowStatusMenu(!showStatusMenu)}
-                  className={`flex items-center gap-2 border px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95 ${isDarkMode ? 'bg-black-800 border-black-700 text-black-200 hover:bg-black-700' : 'bg-white border-slate-200 text-slate-900 hover:border-slate-300'}`}
-                >
-                  Change Status <Filter size={14} />
-                </button>
-                <AnimatePresence>
-                  {showStatusMenu && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className={`absolute bottom-full left-0 mb-2 w-48 rounded-xl shadow-2xl border p-1 flex flex-col gap-1 z-50 transition-colors ${isDarkMode ? 'bg-black-800 border-black-700' : 'bg-white border-slate-200'}`}
-                    >
-                      <button onClick={() => updateStatus('open')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-xl">
-                        <AlertCircle size={16} /> Mark Open
-                      </button>
-                      <button onClick={() => updateStatus('in-progress')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-xl">
-                        <Clock size={16} /> In Progress
-                      </button>
-                      <button onClick={() => updateStatus('resolved')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl">
-                        <CheckCircle2 size={16} /> Mark Resolved
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            ) : (
-               <span className={`text-xs italic ${isDarkMode ? 'text-black-400' : 'text-slate-400'}`}>Sign in to change status</span>
-            )}
+            <>
+              <button 
+                onClick={() => setShowStatusMenu(!showStatusMenu)}
+                className={`flex items-center gap-2 border px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95 ${isDarkMode ? 'bg-black-800 border-black-700 text-black-200 hover:bg-black-700' : 'bg-white border-slate-200 text-slate-900 hover:border-slate-300'}`}
+              >
+                Change Status <Filter size={14} />
+              </button>
+              <AnimatePresence>
+                {showStatusMenu && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className={`absolute bottom-full left-0 mb-2 w-48 rounded-xl shadow-2xl border p-1 flex flex-col gap-1 z-50 transition-colors ${isDarkMode ? 'bg-black-800 border-black-700' : 'bg-white border-slate-200'}`}
+                  >
+                    <button onClick={() => updateStatus('open')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-xl">
+                      <AlertCircle size={16} /> Mark Open
+                    </button>
+                    <button onClick={() => updateStatus('in-progress')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-xl">
+                      <Clock size={16} /> In Progress
+                    </button>
+                    <button onClick={() => updateStatus('resolved')} className="flex items-center gap-2 w-full text-left p-2.5 text-sm font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 rounded-xl">
+                      <CheckCircle2 size={16} /> Mark Resolved
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
           </div>
           <button 
             onClick={onClose}
@@ -1362,80 +1233,22 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
   );
 }
 
-function ProjectModal({ onClose, user, authError, handleSignInGoogle, handleSignInGuest, isLocalGuest }: { onClose: () => void, user: User | null, authError: string | null, handleSignInGoogle: () => void, handleSignInGuest: () => void, isLocalGuest: boolean }) {
+function ProjectModal({ onClose }: { onClose: () => void }) {
   const isDarkMode = document.documentElement.classList.contains('dark');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!user && !isLocalGuest) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
-        />
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden relative z-10 border p-8 text-center transition-colors ${isDarkMode ? 'bg-black-900 border-black-800' : 'bg-white border-slate-200'}`}
-        >
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors ${isDarkMode ? 'bg-black-800' : 'bg-slate-100'}`}>
-            <LogIn className="text-slate-400 w-8 h-8" />
-          </div>
-          <h2 className={`text-xl font-semibold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Identify Yourself</h2>
-          <p className="text-slate-500 mb-8 text-sm">Please sign in to create a project. You can use your Google account or sign in as a guest.</p>
-          
-          <div className="flex flex-col gap-3">
-            {authError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-xs font-medium text-left flex items-start gap-2">
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                {authError}
-              </div>
-            )}
-            <button 
-              onClick={handleSignInGoogle}
-              className={`flex items-center justify-center gap-3 border py-3 rounded-xl font-semibold transition-all shadow-sm active:scale-95 ${isDarkMode ? 'bg-black-800 border-black-700 text-white hover:bg-black-700' : 'bg-white border-slate-200 text-slate-900 hover:bg-slate-50'}`}
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="" />
-              Sign in with Google
-            </button>
-            <button 
-              onClick={handleSignInGuest}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all border shadow-sm active:scale-95 ${isDarkMode ? 'bg-white hover:bg-black-100 text-black-950' : 'bg-white border-slate-200 hover:bg-slate-50 text-black-950'}`}
-            >
-              Continue as Guest
-            </button>
-            <button 
-              onClick={onClose}
-              className={`mt-2 text-sm font-medium hover:text-slate-600 ${isDarkMode ? 'text-black-400' : 'text-slate-400'}`}
-            >
-              Maybe later
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    if (!user) {
-      alert("A real sign-in (Google) is required to create a project.");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
       const projectData = {
         name,
         description,
-        createdBy: user.uid,
+        createdBy: 'anonymous_user',
         createdAt: serverTimestamp()
       };
 
@@ -1471,12 +1284,6 @@ function ProjectModal({ onClose, user, authError, handleSignInGoogle, handleSign
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {!user && (
-            <div className={`mb-6 p-3 rounded-xl border flex items-start gap-3 text-xs font-medium transition-colors ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <p>You are browsing in <b>Guest Mode</b>. Anonymous Auth is disabled in the Firebase project settings, so you can explore the form but not submit it.</p>
-            </div>
-          )}
           <div className="mb-4">
             <label className={`block text-sm font-semibold mb-2 transition-colors ${isDarkMode ? 'text-black-300' : 'text-slate-700'}`}>Project Name</label>
             <input 
@@ -1522,67 +1329,13 @@ function ProjectModal({ onClose, user, authError, handleSignInGoogle, handleSign
   );
 }
 
-function IssueModal({ onClose, user, projects, authError, handleSignInGoogle, handleSignInGuest, isLocalGuest, issueToEdit }: { onClose: () => void, user: User | null, projects: Project[], authError: string | null, handleSignInGoogle: () => void, handleSignInGuest: () => void, isLocalGuest: boolean, issueToEdit?: Issue }) {
+function IssueModal({ onClose, projects, issueToEdit }: { onClose: () => void, projects: Project[], issueToEdit?: Issue }) {
   const isDarkMode = document.documentElement.classList.contains('dark');
   const [description, setDescription] = useState(issueToEdit?.description || '');
   const [projectId, setProjectId] = useState(issueToEdit?.projectId || '');
   const [screenshot, setScreenshot] = useState<string | null>(issueToEdit?.screenshotUrl || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  if (!user && !isLocalGuest) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
-        />
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className={`rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden relative z-10 border p-8 text-center transition-colors ${isDarkMode ? 'bg-black-900 border-black-800' : 'bg-white border-slate-200'}`}
-        >
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 transition-colors ${isDarkMode ? 'bg-black-800' : 'bg-slate-100'}`}>
-            <LogIn className="text-slate-400 w-8 h-8" />
-          </div>
-          <h2 className={`text-xl font-semibold mb-2 transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Identify Yourself</h2>
-          <p className="text-slate-500 mb-8 text-sm">Please sign in to report an issue. You can use your Google account or sign in as a guest.</p>
-          
-          <div className="flex flex-col gap-3">
-            {authError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-xs font-medium text-left flex items-start gap-2">
-                <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                {authError}
-              </div>
-            )}
-            <button 
-              onClick={handleSignInGoogle}
-              className={`flex items-center justify-center gap-3 border py-3 rounded-xl font-semibold transition-all shadow-sm active:scale-95 ${isDarkMode ? 'bg-black-800 border-black-700 text-white hover:bg-black-700' : 'bg-white border-slate-200 text-slate-900 hover:bg-slate-50'}`}
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="" />
-              Sign in with Google
-            </button>
-            <button 
-              onClick={handleSignInGuest}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all border shadow-sm active:scale-95 ${isDarkMode ? 'bg-white hover:bg-black-100 text-black-950' : 'bg-white border-slate-200 hover:bg-slate-50 text-black-950'}`}
-            >
-              Continue as Guest
-            </button>
-            <button 
-              onClick={onClose}
-              className={`mt-2 text-sm font-medium hover:text-slate-600 ${isDarkMode ? 'text-black-400' : 'text-slate-400'}`}
-            >
-              Maybe later
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
 
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1650,10 +1403,6 @@ function IssueModal({ onClose, user, projects, authError, handleSignInGoogle, ha
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
-    if (!user) {
-      alert("A real sign-in (Google) is required to report an issue.");
-      return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -1670,9 +1419,9 @@ function IssueModal({ onClose, user, projects, authError, handleSignInGoogle, ha
         await addDoc(collection(db, 'issues'), {
           ...issueData,
           status: 'open',
-          reporterId: user.uid,
-          reporterName: user.isAnonymous ? 'Guest User' : (user.displayName || 'Anonymous'),
-          reporterEmail: user.email || (user.isAnonymous ? 'guest@anonymous.com' : ''),
+          reporterId: 'anonymous_user',
+          reporterName: 'Guest User',
+          reporterEmail: 'guest@anonymous.com',
           createdAt: serverTimestamp(),
         });
       }
@@ -1707,12 +1456,6 @@ function IssueModal({ onClose, user, projects, authError, handleSignInGoogle, ha
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {!user && (
-            <div className={`mb-6 p-3 rounded-xl border flex items-start gap-3 text-xs font-medium transition-colors ${isDarkMode ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
-              <AlertCircle size={16} className="shrink-0 mt-0.5" />
-              <p>You are browsing in <b>Guest Mode</b>. Anonymous Auth is disabled in the Firebase project settings, so you can explore the form but not submit it.</p>
-            </div>
-          )}
           <div className="mb-6">
             <label className={`block text-sm font-semibold mb-2 transition-colors ${isDarkMode ? 'text-black-300' : 'text-slate-700'}`}>Select Project</label>
             <select 
