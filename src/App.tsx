@@ -150,6 +150,10 @@ export default function App() {
       await signInWithGoogle();
       setIsLocalGuest(false);
     } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        // Ignore these errors as they are user-initiated cancellations
+        return;
+      }
       console.error("Sign in error:", error);
       setAuthError(error.message);
     }
@@ -161,11 +165,11 @@ export default function App() {
       await signInAsGuest();
       setIsLocalGuest(false);
     } catch (error: any) {
-      console.error("Guest sign in error:", error);
       if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
         setIsLocalGuest(true);
-        setAuthError('Guest Mode (Read-Only) activated. Note: Anonymous Authentication is disabled in the Firebase Console.');
+        setAuthError('Anonymous Authentication is disabled. You can browse issues in read-only mode, but signing in with Google is required to report or edit issues.');
       } else {
+        console.error("Guest sign in error:", error);
         setAuthError(error.message);
       }
     }
