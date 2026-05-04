@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Issue": {
+      "title": "Issue",
+      "description": "A QA issue tracking entry",
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the bug or issue"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "in-progress", "resolved"],
+          "description": "Current status of the issue"
+        },
+        "screenshotUrl": {
+          "type": "string",
+          "description": "URL or Base64 data of the screenshot"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the issue was first reported"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the issue was last updated"
+        },
+        "reporterId": {
+          "type": "string",
+          "description": "The UID of the user who reported the issue"
+        },
+        "reporterName": {
+          "type": "string",
+          "description": "Display name of the reporter"
+        },
+        "reporterEmail": {
+          "type": "string",
+          "description": "Email of the reporter"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "The ID of the project this issue belongs to"
+        }
+      },
+      "required": ["description", "status", "createdAt", "updatedAt", "reporterId"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A project that groups issues",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the project"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the project"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the project was created"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the project"
+        }
+      },
+      "required": ["name", "createdAt", "createdBy"]
+    }
+  },
+  "firestore": {
+    "issues": {
+      "schema": "Issue",
+      "description": "Collection of QA issues"
+    },
+    "projects": {
+      "schema": "Project",
+      "description": "Collection of projects"
+    }
+  }
+}

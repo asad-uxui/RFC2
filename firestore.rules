@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Field-level validation
+    function isValidIssueShape(data) {
+      return data.keys().hasAll(['description', 'status', 'reporterId', 'createdAt', 'updatedAt'])
+          && data.description is string && data.description.size() <= 2000
+          && data.status in ['open', 'in-progress', 'resolved']
+          && (data.screenshotUrl == null || (data.screenshotUrl is string && data.screenshotUrl.size() <= 900000))
+          && data.reporterId is string && data.reporterId.size() <= 128
+          && (data.reporterName == null || (data.reporterName is string && data.reporterName.size() <= 256))
+          && (data.reporterEmail == null || (data.reporterEmail is string && data.reporterEmail.size() <= 256))
+          && (data.get('projectId', null) == null || (data.projectId is string && data.projectId.size() <= 128))
+          && data.createdAt is timestamp
+          && data.updatedAt is timestamp;
+    }
+
+    function isValidProjectShape(data) {
+       return data.keys().hasAll(['name', 'createdAt', 'createdBy'])
+          && data.name is string && data.name.size() <= 256
+          && (data.get('description', null) == null || (data.description is string && data.description.size() <= 1000))
+          && data.createdAt is timestamp
+          && data.createdBy is string && data.createdBy.size() <= 128;
+    }
+
+    match /issues/{issueId} {
+      allow read: if true; // Public read access
+      
+      allow create: if isSignedIn() 
+                  && isValidId(issueId)
+                  && isValidIssueShape(incoming())
+                  && incoming().reporterId == request.auth.uid
+                  && incoming().createdAt == request.time
+                  && incoming().updatedAt == request.time;
+                  
+      allow update: if isSignedIn()
+                  && isValidIssueShape(incoming())
+                  && incoming().reporterId == existing().reporterId
+                  && incoming().createdAt == existing().createdAt
+                  && incoming().updatedAt == request.time
+                  && (
+                    (existing().reporterId == request.auth.uid) ||
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']))
+                  );
+                  
+      allow delete: if isSignedIn() && existing().reporterId == request.auth.uid;
+    }
+
+    match /projects/{projectId} {
+       allow read: if true;
+       allow create: if isSignedIn() 
+                     && isValidId(projectId)
+                     && isValidProjectShape(incoming())
+                     && incoming().createdBy == request.auth.uid
+                     && incoming().createdAt == request.time;
+       allow update: if isSignedIn() && existing().createdBy == request.auth.uid;
+       allow delete: if isSignedIn() && existing().createdBy == request.auth.uid;
+    }
+  }
+}
