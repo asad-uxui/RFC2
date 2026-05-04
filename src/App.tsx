@@ -117,6 +117,7 @@ const Logo = ({ size = "md", isDarkMode = false }: { size?: "sm" | "md" | "lg", 
 export default function App() {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -167,8 +168,10 @@ export default function App() {
         ...doc.data()
       })) as Issue[];
       setIssues(docs);
+      setIsLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'issues');
+      setIsLoading(false);
     });
 
     return unsubscribe;
@@ -230,8 +233,8 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 pb-12">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Issue Tracker</h1>
-            <p className={`${isDarkMode ? 'text-black-400' : 'text-slate-500'}`}>Monitor and resolve reported QA issues.</p>
+            <h1 className={`text-2xl font-semibold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Bug Tracker</h1>
+            <p className={`${isDarkMode ? 'text-black-400' : 'text-slate-500'}`}>Monitor and resolve reported QA bugs.</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -247,7 +250,7 @@ export default function App() {
               className={`flex items-center justify-center gap-2 font-semibold py-2.5 px-5 rounded-xl transition-all shadow-md hover:shadow-lg active:scale-95 ${isDarkMode ? 'bg-white hover:bg-black-100 text-black-950' : 'bg-slate-900 hover:bg-slate-800 text-white'}`}
             >
               <Plus size={20} />
-              New Issue
+              New Bug
             </button>
           </div>
         </div>
@@ -384,10 +387,23 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-black-800' : 'divide-slate-100'}`}>
-                  {filteredIssues.length === 0 ? (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-20 text-center">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <motion.div 
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className={`w-8 h-8 border-2 border-t-transparent rounded-full ${isDarkMode ? 'border-black-400' : 'border-slate-400'}`}
+                          />
+                          <span className={`text-sm font-medium ${isDarkMode ? 'text-black-400' : 'text-slate-400'}`}>Loading bugs...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredIssues.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">
-                        No issues found.
+                        No bugs found.
                       </td>
                     </tr>
                   ) : (
@@ -410,9 +426,18 @@ export default function App() {
 
         {viewMode === 'card' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredIssues.length === 0 ? (
+            {isLoading ? (
+              <div className="col-span-full py-20 flex flex-col items-center justify-center gap-3">
+                <motion.div 
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                  className={`w-8 h-8 border-2 border-t-transparent rounded-full ${isDarkMode ? 'border-black-400' : 'border-slate-400'}`}
+                />
+                <span className={`text-sm font-medium ${isDarkMode ? 'text-black-400' : 'text-slate-400'}`}>Loading bugs...</span>
+              </div>
+            ) : filteredIssues.length === 0 ? (
               <div className="col-span-full py-20 text-center text-slate-400 italic">
-                No issues found.
+                No bugs found.
               </div>
             ) : (
               filteredIssues.map((issue) => (
@@ -523,7 +548,7 @@ function IssueRow({ issue, index, onView, isDarkMode, projects }: { issue: Issue
       <td className="px-6 py-4">
         {issue.screenshotUrl ? (
           <div className={`w-12 h-12 rounded-lg border overflow-hidden flex items-center justify-center transition-colors ${isDarkMode ? 'bg-black-800 border-black-700' : 'bg-slate-100 border-slate-200'}`}>
-             <img src={issue.screenshotUrl} alt="Issue thumbnail" className="w-full h-full object-cover" />
+             <img src={issue.screenshotUrl} alt="Bug thumbnail" className="w-full h-full object-cover" />
           </div>
         ) : (
           <div className={`w-12 h-12 rounded-lg border overflow-hidden flex items-center justify-center transition-colors ${isDarkMode ? 'bg-black-800 border-black-700 text-black-600' : 'bg-slate-50 border-slate-100 text-slate-300'}`}>
@@ -577,7 +602,7 @@ function IssueCard({ issue, onView, isDarkMode, projects }: { issue: Issue, onVi
         {issue.screenshotUrl ? (
           <img 
             src={issue.screenshotUrl} 
-            alt="Issue preview" 
+            alt="Bug preview" 
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
@@ -596,7 +621,7 @@ function IssueCard({ issue, onView, isDarkMode, projects }: { issue: Issue, onVi
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex flex-col">
             <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              Issue #{issue.id.slice(-6).toUpperCase()}
+              Bug #{issue.id.slice(-6).toUpperCase()}
             </span>
             {project && (
               <span className={`text-[9px] font-semibold uppercase tracking-tight ${isDarkMode ? 'text-black-500' : 'text-emerald-600'}`}>
@@ -690,7 +715,7 @@ function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, on
         <div className={`px-6 py-4 border-b flex items-center justify-between shrink-0 transition-colors ${isDarkMode ? 'bg-black-900 border-black-800' : 'bg-white border-slate-100'}`}>
           <div className="flex items-center gap-3">
              <StatusBadge status={issue.status} />
-             <span className="text-xs text-slate-400 font-medium">Issue #{issue.id.slice(-6).toUpperCase()}</span>
+             <span className="text-xs text-slate-400 font-medium">Bug #{issue.id.slice(-6).toUpperCase()}</span>
              {project && (
                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase tracking-wider ${isDarkMode ? 'bg-black-800 border-black-700 text-black-400' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
                  Project: {project.name}
@@ -713,7 +738,7 @@ function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, on
                     onClick={() => onEdit(issue)}
                     disabled={isUpdating}
                     className={`p-1.5 rounded-xl transition-all disabled:opacity-50 ${isDarkMode ? 'text-black-400 hover:bg-black-800 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
-                    title="Edit Issue"
+                    title="Edit Bug"
                   >
                     <Edit2 size={18} />
                   </button>
@@ -722,7 +747,7 @@ function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, on
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isUpdating}
                     className="text-rose-500 hover:text-rose-700 p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all disabled:opacity-50"
-                    title="Delete Issue"
+                    title="Delete Bug"
                   >
                     <Trash2 size={18} />
                   </button>
@@ -739,7 +764,7 @@ function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, on
                 onClick={() => setIsZoomed(true)}
                 className={`rounded-xl overflow-hidden border group relative cursor-zoom-in transition-colors ${isDarkMode ? 'bg-black-950 border-black-800' : 'bg-slate-50 border-slate-200'}`}
               >
-                <img src={issue.screenshotUrl} alt="Issue Full" className="w-full max-h-[400px] object-contain mx-auto" />
+                <img src={issue.screenshotUrl} alt="Bug Full" className="w-full max-h-[400px] object-contain mx-auto" />
                 <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-white/5 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <span className={`px-4 py-2 rounded-xl text-sm font-semibold shadow-lg ${isDarkMode ? 'bg-black-800 text-white' : 'bg-white text-slate-900'}`}>Click to Enlarge</span>
                 </div>
@@ -861,9 +886,9 @@ function ViewIssueModal({ issue, onClose, projects, onEdit }: { issue: Issue, on
                 <div className="w-12 h-12 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mb-4">
                   <Trash2 size={24} />
                 </div>
-                <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Delete Issue?</h3>
+                <h3 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Delete Bug?</h3>
                 <p className={`text-sm mb-6 ${isDarkMode ? 'text-black-400' : 'text-slate-500'}`}>
-                  Are you sure you want to delete this issue? This action cannot be undone.
+                  Are you sure you want to delete this bug? This action cannot be undone.
                 </p>
                 <div className="flex gap-3 w-full">
                   <button 
@@ -962,10 +987,10 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
       });
 
       if (format === 'csv') {
-        let filename = 'all_issues.csv';
+        let filename = 'all_bugs.csv';
         if (selectedProjectId !== 'all') {
           const project = projects.find(p => p.id === selectedProjectId);
-          filename = `${project?.name.toLowerCase().replace(/\s+/g, '_') || 'project'}_issues.csv`;
+          filename = `${project?.name.toLowerCase().replace(/\s+/g, '_') || 'project'}_bugs.csv`;
         }
 
         const headers = ['ID', 'Description', 'Status', 'Project', 'Reporter', 'Created At', 'Screenshot'];
@@ -1001,8 +1026,8 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
         // PDF Export
         const doc = new jsPDF() as any;
         const title = selectedProjectId === 'all' 
-          ? 'Issue Reports Summary' 
-          : `${projects.find(p => p.id === selectedProjectId)?.name || 'Project'} - Detailed Issue Report`;
+          ? 'Bug Reports Summary' 
+          : `${projects.find(p => p.id === selectedProjectId)?.name || 'Project'} - Detailed Bug Report`;
         
         doc.setFontSize(22);
         doc.setTextColor(15, 23, 42); // slate-900
@@ -1011,7 +1036,7 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
         doc.setFontSize(10);
         doc.setTextColor(100);
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 32);
-        doc.text(`Total Issues: ${issuesToExport.length}`, 14, 37);
+        doc.text(`Total Bugs: ${issuesToExport.length}`, 14, 37);
 
         let currentY = 45;
         const margin = 14;
@@ -1036,7 +1061,7 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
           doc.setFontSize(11);
           doc.setFont('helvetica', 'bold');
           doc.setTextColor(15, 23, 42);
-          doc.text(`ISSUE #${issue.id.substring(0, 8).toUpperCase()}`, margin + 2, currentY + 6);
+          doc.text(`BUG #${issue.id.substring(0, 8).toUpperCase()}`, margin + 2, currentY + 6);
           currentY += 15;
 
           // Details Grid (2 columns simulation)
@@ -1134,7 +1159,7 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
         }
 
         const filename = selectedProjectId === 'all' 
-          ? 'issues_report.pdf' 
+          ? 'bugs_report.pdf' 
           : `${projects.find(p => p.id === selectedProjectId)?.name.toLowerCase().replace(/\s+/g, '_') || 'project'}_report.pdf`;
         
         doc.save(filename);
@@ -1197,8 +1222,8 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
 
           <p className={`text-xs mb-8 transition-colors ${isDarkMode ? 'text-black-400' : 'text-slate-500'}`}>
             {selectedProjectId === 'all' 
-              ? `This will include all ${issues.length} reported issues across all projects.` 
-              : `This will include only the issues associated with the selected project.`}
+              ? `This will include all ${issues.length} reported bugs across all projects.` 
+              : `This will include only the bugs associated with the selected project.`}
           </p>
 
           <div className="flex flex-col gap-3">
@@ -1449,7 +1474,7 @@ function IssueModal({ onClose, projects, issueToEdit }: { onClose: () => void, p
         className={`w-full max-w-lg overflow-hidden relative z-10 border my-8 rounded-2xl shadow-2xl transition-colors ${isDarkMode ? 'bg-black-900 border-black-800' : 'bg-white border-slate-200'}`}
       >
         <div className={`px-6 py-4 border-b flex items-center justify-between transition-colors ${isDarkMode ? 'bg-black-900/50 border-black-800' : 'bg-slate-50/50 border-slate-100'}`}>
-          <h2 className={`text-xl font-semibold transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{issueToEdit ? 'Edit QA Issue' : 'New QA Issue'}</h2>
+          <h2 className={`text-xl font-semibold transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{issueToEdit ? 'Edit Bug' : 'New Bug'}</h2>
           <button onClick={onClose} className={`p-1 rounded-full transition-colors ${isDarkMode ? 'hover:bg-black-800' : 'hover:bg-slate-100'}`}>
             <X size={20} className="text-slate-500" />
           </button>
@@ -1533,7 +1558,7 @@ function IssueModal({ onClose, projects, issueToEdit }: { onClose: () => void, p
                   {issueToEdit ? 'Saving...' : 'Creating...'}
                 </>
               ) : (
-                issueToEdit ? 'Save Changes' : 'Create Issue'
+                issueToEdit ? 'Save Changes' : 'Create Bug'
               )}
             </button>
           </div>
