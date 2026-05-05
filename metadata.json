@@ -1,5 +1,5 @@
 {
-  "name": "QA Tracer",
+  "name": "Bug Tracker",
   "description": "Minimal and fast QA issue tracking system with screenshot support and status management.",
   "requestFramePermissions": [],
   "majorCapabilities": []
