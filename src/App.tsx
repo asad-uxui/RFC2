@@ -947,6 +947,7 @@ function StatusBadge({ status }: { status: IssueStatus }) {
 function ExportModal({ onClose, issues, projects, format }: { onClose: () => void, issues: Issue[], projects: Project[], format: 'csv' | 'pdf' }) {
   const isDarkMode = document.documentElement.classList.contains('dark');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [selectedStatuses, setSelectedStatuses] = useState<IssueStatus[]>(['open', 'in-progress', 'resolved']);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const getImageData = (url: string): Promise<string> => {
@@ -977,6 +978,15 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
       
       if (selectedProjectId !== 'all') {
         issuesToExport = issues.filter(i => i.projectId === selectedProjectId);
+      }
+
+      // Filter by status
+      issuesToExport = issuesToExport.filter(i => selectedStatuses.includes(i.status));
+
+      if (issuesToExport.length === 0) {
+        setIsProcessing(false);
+        alert('No bugs found with the current selection.');
+        return;
       }
 
       // Sort by creation time (ascending) - tasks added first appear first
@@ -1220,10 +1230,41 @@ function ExportModal({ onClose, issues, projects, format }: { onClose: () => voi
             </select>
           </div>
 
+          <div className="mb-6">
+            <label className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-black-500' : 'text-slate-400'}`}>Filter by Status</label>
+            <div className="flex flex-wrap gap-2">
+              {(['open', 'in-progress', 'resolved'] as IssueStatus[]).map(status => {
+                const isActive = selectedStatuses.includes(status);
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => {
+                      if (isActive) {
+                        if (selectedStatuses.length > 1) {
+                          setSelectedStatuses(selectedStatuses.filter(s => s !== status));
+                        }
+                      } else {
+                        setSelectedStatuses([...selectedStatuses, status]);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      isActive 
+                        ? (isDarkMode ? 'bg-white text-black-950 border-white' : 'bg-slate-900 text-white border-slate-900')
+                        : (isDarkMode ? 'bg-black-950 text-black-500 border-black-800' : 'bg-white text-slate-500 border-slate-200')
+                    }`}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <p className={`text-xs mb-8 transition-colors ${isDarkMode ? 'text-black-400' : 'text-slate-500'}`}>
             {selectedProjectId === 'all' 
-              ? `This will include all ${issues.length} reported bugs across all projects.` 
-              : `This will include only the bugs associated with the selected project.`}
+              ? `Include all reported bugs across all projects matching selected statuses.` 
+              : `Include only the bugs associated with the selected project and statuses.`}
           </p>
 
           <div className="flex flex-col gap-3">
